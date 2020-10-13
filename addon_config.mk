@@ -30,7 +30,8 @@ common:
 	# include search paths, this will be usually parsed from the file system
 	# but if the addon or addon libraries need special search paths they can be
 	# specified here separated by spaces or one per line using +=
-	ADDON_INCLUDES =  libs/PCL/include
+	ADDON_INCLUDES =  src/
+	ADDON_INCLUDES += libs/PCL/include
 	ADDON_INCLUDES += libs/FLANN
 	ADDON_INCLUDES += libs/Eigen/eigen3/
 	
