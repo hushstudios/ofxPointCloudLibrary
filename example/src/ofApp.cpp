@@ -4,26 +4,27 @@
 void ofApp::setup()
 {
 
-	// we'll load a mesh and then create two copies with missing / noisy data ("points A" and "points B")
+	// we'll load a 3D model mesh and then create two copies with missing / noisy data ("points A" and "points B")
 
 	mesh.load( "penguin.ply" );
 
 	auto& verts         = mesh.getVertices();
 	const auto& indices = mesh.getIndices();
 
-	// fix model orientation
+	// fix penguin model orientation
 	glm::quat rot = glm::angleAxis( ofDegToRad( -90.f ), glm::vec3{ 1.f, 0.f, 0.f } );
 	for ( auto& vert : mesh.getVertices() ) {
 		vert = rot * vert;
 	}
 
-	// copy mesh to pointsA and pointsB and degrade
+	// copy model's mesh to pointsA and pointsB and degrade
+
 	auto& meshA = pointsA.getMesh();
 	auto& meshB = pointsB.getMesh();
 
-	for ( int i = 0; i < indices.size(); i += 3 ) {
+	for ( int i = 0; i < indices.size(); i += 3 ) {	// loop through mesh faces
 
-		// add face to point cloud A
+		// randomly add mesh face to point cloud A
 		if ( ofRandom( 0., 1. ) < 0.1 ) {
 			auto id = meshA.getVertices().size();
 			meshA.addVertex( verts[indices[i]] );
@@ -34,7 +35,7 @@ void ofApp::setup()
 			meshA.addIndex( id + 2 );
 		}
 
-		// add face to point cloud B
+		// randomly add mesh face to point cloud B
 		if ( ofRandom( 0., 1. ) < 0.1 ) {
 			auto id = meshB.getVertices().size();
 			meshB.addVertex( verts[indices[i]] );
@@ -108,22 +109,25 @@ void ofApp::draw()
 	gui.draw();
 }
 
+//
+// align points A to points B - 
+//	uses ofxPcl::Alignment::align(A,B)
 //--------------------------------------------------------------
 void ofApp::alignIcp()
 {
-	// build point clouds from meshes and transforms
+	// build basic point clouds from meshes and transforms
 	std::vector<glm::vec3> sourcePoints, targetPoints;
 
-	// points A = source
-	sourcePoints.reserve( pointsA.getMesh().getVertices().size() );
-	for ( auto& vert : pointsA.getMesh().getVertices() ) {
-		sourcePoints.push_back( pointsA.getGlobalTransformMatrix() * glm::vec4( vert, 1. ) );
+	// source points is the point cloud that needs alignment (points A)
+	sourcePoints = pointsA.getMesh().getVertices();
+	for ( auto& pt : sourcePoints ) {
+		pt = pointsA.getGlobalTransformMatrix() * glm::vec4( pt, 1. );	// apply pointsA of3dPrimitive transform to vertex data
 	}
 
-	// points B = target
-	targetPoints.reserve( pointsB.getMesh().getVertices().size() );
-	for ( auto& vert : pointsB.getMesh().getVertices() ) {
-		targetPoints.push_back( pointsB.getGlobalTransformMatrix() * glm::vec4( vert, 1. ) );
+	// points B = target mesh (source is aligned to this)
+	targetPoints = pointsB.getMesh().getVertices();
+	for ( auto& pt : targetPoints ) {
+		pt = pointsB.getGlobalTransformMatrix() * glm::vec4( pt, 1. );
 	}
 
 	float t0       = ofGetElapsedTimef();
@@ -137,18 +141,17 @@ void ofApp::alignIcp()
 	              << "\ttransformation matrix (glm::mat4):\n"
 	              << alignMat;
 
-	// rebuild pointsAligned, points A -> points A transform -> alignment transform
+	// points aligned model shows points A after alignment
 	pointsAligned = pointsA;
 	pointsAligned.resetTransform();
 
-	// either manually apply the matrix to each vertex...
-	//auto& alignedVerts = pointsAligned.getMesh().getVertices();
-	//for ( auto& vert : alignedVerts ) {
+	// either manually apply the alignment matrix ( + initial points A transform ) to each vertex...
+	//for ( auto& vert : pointsAligned.getMesh().getVertices() ) {
 	//	vert = alignMat * pointsA.getGlobalTransformMatrix() * glm::vec4( vert, 1. );
 	//}
 
-	// or decompose matrix, and apply the transformation to the ofNode
-	glm::mat4 combinedMat = alignMat * pointsA.getGlobalTransformMatrix();
+	// or decompose the alignment matrix, and apply the transformations to the ofNode
+	glm::mat4 combinedMat = alignMat * pointsA.getGlobalTransformMatrix();	// pointsA offset transform + alignment transform
 	glm::vec3 scale;
 	glm::quat rotation;
 	glm::vec3 translation;
